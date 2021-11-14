@@ -218,6 +218,8 @@ def count_sketch_BO_experiments(start_rep=1, stop_rep=50, test_func='Rosenbrock'
     fileObject.close()
 
 
+# python experiments.py HeSBO 1 1 Branin 80 4 100 10 0
+
 if __name__=='__main__':
     start_rep = int(sys.argv[2])
     stop_rep = int(sys.argv[3])
