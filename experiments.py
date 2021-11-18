@@ -7,6 +7,10 @@ import sys
 from random import sample
 from pyDOE import lhs
 
+import importlib
+importlib.reload(REMBO)
+importlib.reload(count_sketch)
+
 def REMBO_experiments(start_rep=1, stop_rep=50, test_func='Rosenbrock', total_itr=100,
                       low_dim=2, high_dim=25, initial_n=20, opt_interval=20, ARD=False,
                       box_size=None, noise_var=0):
@@ -72,7 +76,7 @@ def REMBO_experiments(start_rep=1, stop_rep=50, test_func='Rosenbrock', total_it
         stop = timeit.default_timer()
 
         print(i)
-        print(stop - start)
+        print(f'Stop minus start: {stop - start}')
 
     # Saving the results for Hartmann6 in a pickle
     if test_func=='Rosenbrock':
@@ -193,8 +197,7 @@ def count_sketch_BO_experiments(start_rep=1, stop_rep=50, test_func='Rosenbrock'
 
         stop = timeit.default_timer()
 
-        print(i)
-        print(stop - start)
+        print(f'Iteration {i}, {stop - start} seconds.')
 
         # Saving the results for Hartmann6 in a pickle
     if test_func == 'Rosenbrock':

@@ -5,6 +5,7 @@ from pyDOE import lhs
 import functions
 from REMBO import EI
 import timeit
+import torch
 
 def dim_sampling(low_dim, X, bx_size):
     if len(X.shape)==1:
@@ -24,25 +25,28 @@ def dim_sampling(low_dim, X, bx_size):
             elif low_obs[i][j] < -bx_size: low_obs[i][j] = -bx_size
     return low_obs, high_to_low, sign
 
-def back_projection(low_obs, high_to_low, sign, bx_size):
+def back_projection(low_obs, transition, trace = False):
+    # Input:
+    #   low_obs: R(Nxd) low-dim observations
+    #   transition: R(dxD) transition matrix
+    # Output:
+    #   high_obs: R(NxD) high-dim observations
+    
+    
+    if trace:
+        print(f"Low obs dim: {low_obs.shape}")
+        print(f"Transition dim: {transition.shape}")
+    
     if len(low_obs.shape)==1:
         low_obs=low_obs.reshape((1, low_obs.shape[0]))
-    n=low_obs.shape[0]
-    high_dim=high_to_low.shape[0]
-    low_dim=low_obs.shape[1]
-    high_obs=np.zeros((n,high_dim))
-    scale=1
-    for i in range(high_dim):
-        high_obs[:,i]=sign[i]*low_obs[:,high_to_low[i]]*scale
-    for i in range(n):
-        for j in range(high_dim):
-            if high_obs[i][j] > bx_size: high_obs[i][j] = bx_size
-            elif high_obs[i][j] < -bx_size: high_obs[i][j] = -bx_size
+        
+    high_obs = low_obs@transition        
+        
     return high_obs
 
 def RunMain(low_dim=2, high_dim=25, initial_n=20, total_itr=100, func_type='Branin',
             s=None, active_var=None, ARD=False, variance=1., length_scale=None, box_size=None,
-            high_to_low=None, sign=None, hyper_opt_interval=20, noise_var=0):
+            high_to_low=None, sign=None, hyper_opt_interval=20, noise_var=0, trace = True):
     """
 
     :param high_dim: the dimension of high dimensional search space
@@ -92,12 +96,15 @@ def RunMain(low_dim=2, high_dim=25, initial_n=20, total_itr=100, func_type='Bran
 
     best_results = np.zeros([1, total_itr + initial_n])
     elapsed=np.zeros([1, total_itr + initial_n])
+    
+    # Randomly generate starting transition matrix
+    transition = torch.rand(low_dim, high_dim)
 
     # Creating the initial points. The shape of s is nxD
     if s is None:
         s=lhs(low_dim, initial_n) * 2 * box_size - box_size
-    f_s = test_func.evaluate(back_projection(s,high_to_low,sign,box_size))
-    f_s_true = test_func.evaluate_true(back_projection(s,high_to_low,sign,box_size))
+    f_s = test_func.evaluate(back_projection(s,transition))
+    f_s_true = test_func.evaluate_true(back_projection(s,transition))
     for i in range(initial_n):
         best_results[0,i]=np.max(f_s_true[0:i+1])
 
@@ -105,6 +112,10 @@ def RunMain(low_dim=2, high_dim=25, initial_n=20, total_itr=100, func_type='Bran
     kern = GPy.kern.Matern52(input_dim=low_dim, ARD=ARD, variance=variance, lengthscale=length_scale)
     m = GPy.models.GPRegression(s, f_s, kernel=kern)
     m.likelihood.variance = 1e-3
+    
+    if trace:
+        print("begin loop")
+        print(f"f_s:{f_s.shape}, f_s values:{f_s}")
 
     # Main loop
     for i in range(total_itr):
@@ -112,11 +123,15 @@ def RunMain(low_dim=2, high_dim=25, initial_n=20, total_itr=100, func_type='Bran
         start = timeit.default_timer()
 
         # Updating GP model
+        if trace:
+            print("Updating GP model")
         m.set_XY(s, f_s)
         if (i+initial_n<=25 and i % 5 == 0) or (i+initial_n>25 and i % hyper_opt_interval == 0):
             m.optimize()
 
         # Maximizing acquisition function
+        if trace:
+            print("Maximizing acquisition function.")
         D = lhs(low_dim, 2000) * 2 * box_size - box_size
         mu, var = m.predict(D)
         ei_d = EI(len(D), max(f_s), mu, var)
@@ -124,19 +139,23 @@ def RunMain(low_dim=2, high_dim=25, initial_n=20, total_itr=100, func_type='Bran
 
         # Adding the new point to our sample
         s = np.append(s, [D[index]], axis=0)
-        new_high_point=back_projection(D[index],high_to_low,sign,box_size)
+        new_high_point=back_projection(D[index],transition)
         f_s = np.append(f_s, test_func.evaluate(new_high_point), axis=0)
         f_s_true = np.append(f_s_true, test_func.evaluate_true(new_high_point), axis=0)
 
         stop = timeit.default_timer()
         best_results[0, i + initial_n] = np.max(f_s_true)
         elapsed[0, i + initial_n]=stop-start
+        
+        if trace:
+            print(f"Best value found: {np.max(f_s_true)}")
 
     # if func_type == 'WalkerSpeed':
     #     eng.quit()
-    high_s = back_projection(s,high_to_low,sign,box_size)
+    high_s = back_projection(s,transition)
+    print("Finished count sketch.")
     return best_results, elapsed, s, f_s, f_s_true, high_s
 
 if __name__=='__main__':
     res, time, s, f_s, f_s_true, _=RunMain(low_dim=8, high_dim=25, initial_n=20, total_itr=50, ARD=True, noise_var=1)
-    print(res,time)
+    print(f'Res:{res},Time:{time}')
