@@ -1,6 +1,10 @@
 import torch
 import numpy as np
 
+
+# Test functions available at https://github.com/zi-w/Ensemble-Bayesian-Optimization
+
+
 class Branin():
     '''
     Takes in an n x 2 input matrix where each row is an observation of dimension 2.
@@ -29,6 +33,12 @@ class Branin():
         r = self.param['r']
         s = self.param['s']
         t = self.param['t']
+
+        if len(x.shape) == 1:
+            x = x.reshape(1, -1)
+
+        if x.shape[1] != 2:
+            raise(Exception("Wrong function input dimension."))
         
         f = a*(x[:,1] - b*x[:,1]**2 + c*x[:,0] - r)**2 + s*(1-t)*torch.cos(x[:,1]) + s
                 
@@ -36,7 +46,7 @@ class Branin():
 
 class Ackley():
     def __init__(self, noise_var = 0, trace = False):
-        self.domain = np.array([])
+        self.domain = np.array([-32.768, 32.768])
 
         self.params = {
             'a': 20,
@@ -54,6 +64,8 @@ class Ackley():
         if len(x.shape) == 1:
             x = x.reshape(1, -1)
 
+        x = torch.clip(x, self.domain[0], self.domain[1])
+
         n = x.shape[1]        
         first_operand = -a * torch.exp(torch.sqrt(torch.sum(x**2, axis = 1) / n) * -b)
         second_operand = torch.exp(torch.sum(np.cos(c * x), axis = 1) / n)
@@ -64,3 +76,21 @@ class Ackley():
             print(f"second operand: {second_operand}")
 
         return first_operand - second_operand + a + torch.exp(torch.tensor(1))
+
+
+
+class Levy:
+    def __init__(self, dim=10):
+        self.dim = dim
+        self.lb = -5 * np.ones(dim)
+        self.ub = 10 * np.ones(dim)
+        
+    def evaluate(self, x):
+        assert len(x) == self.dim
+        assert x.ndim == 1
+        assert np.all(x <= self.ub) and np.all(x >= self.lb)
+        w = 1 + (x - 1.0) / 4.0
+        val = np.sin(np.pi * w[0]) ** 2 + \
+            np.sum((w[1:self.dim - 1] - 1) ** 2 * (1 + 10 * np.sin(np.pi * w[1:self.dim - 1] + 1) ** 2)) + \
+            (w[self.dim - 1] - 1) ** 2 * (1 + np.sin(2 * np.pi * w[self.dim - 1])**2)
+        return val
