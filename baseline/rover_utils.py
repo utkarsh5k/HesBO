@@ -1,5 +1,3 @@
-from itertools import izip
-
 import numpy as np
 import scipy.interpolate as si
 
@@ -78,11 +76,11 @@ class PointBSpline(Trajectory):
         self.tck, u = si.splprep(points, k=3)
 
         if start is not None:
-            for a, sv in izip(self.tck[1], start):
+            for a, sv in zip(self.tck[1], start):
                 a[0] = sv
 
         if goal is not None:
-            for a, gv in izip(self.tck[1], goal):
+            for a, gv in zip(self.tck[1], goal):
                 a[-1] = gv
 
     def get_points(self, t):
