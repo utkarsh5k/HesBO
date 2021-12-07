@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-
+import rover 
+from rover_utils import ConstantOffsetFn, NormalizedInputFn
 
 # Test functions available at https://github.com/zi-w/Ensemble-Bayesian-Optimization
 
@@ -77,7 +78,25 @@ class Ackley():
 
         return first_operand - second_operand + a + torch.exp(torch.tensor(1))
 
+class Rover: 
+    def __init__(self): 
+        domain = rover.create_large_domain()
+        n_points = domain.traj.npoints
+        raw_x_range = np.repeat(domain.s_range, n_points, axis=1)
 
+        f_max = 5.0
+        f = ConstantOffsetFn(domain, f_max)
+        self.fn = NormalizedInputFn(f, raw_x_range)
+
+    
+    def l2cost(self, x, point):
+        return 10 * np.linalg.norm(x - point, 1)
+
+    def evaluate(self, x): 
+        if type(x) == type(torch.tensor): 
+            x = x.detach().numpy()
+        
+        return torch.tensor(self.fn(x))
 
 class Levy:
     def __init__(self, dim=10):
