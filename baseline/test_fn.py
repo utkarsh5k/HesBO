@@ -78,7 +78,7 @@ class Ackley():
 
         return first_operand - second_operand + a + torch.exp(torch.tensor(1))
 
-class Rover: 
+class Rover(): 
     def __init__(self): 
         domain = rover.create_large_domain()
         n_points = domain.traj.npoints
